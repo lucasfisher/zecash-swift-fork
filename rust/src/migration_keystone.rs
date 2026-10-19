@@ -272,7 +272,7 @@ mod tests {
     use orchard::value::NoteValue;
     use pczt::roles::creator::Creator;
     use pczt::roles::io_finalizer::IoFinalizer;
-    use rand::rngs::OsRng;
+    use crate::OsRng;
     use shardtree::ShardTree;
     use shardtree::store::memory::MemoryShardStore;
     use ur_registry::zcash::zcash_sign_batch::ZcashSignBatch;
@@ -378,7 +378,7 @@ mod tests {
             .expect("build_for_pczt");
 
         let base = Creator::build_from_parts(pczt_parts).expect("creator");
-        let base = IoFinalizer::new(base).finalize_io().expect("io finalize");
+        let base = IoFinalizer::new(base).finalize_io(OsRng).expect("io finalize");
         base.serialize().expect("serialize")
     }
 

@@ -192,18 +192,20 @@ pub unsafe extern "C" fn zcashlc_get_typecodes_for_unified_address_receivers(
     let res = catch_panic(|| {
         let ua_str = unsafe { CStr::from_ptr(ua).to_str()? };
 
-        let (_, ua) = unified::Address::decode(ua_str)
+        let (_, _, ua) = unified::Address::decode(ua_str)
             .map_err(|e| anyhow!("Invalid Unified Address: {}", e))?;
 
         let typecodes = ua
             .items()
             .into_iter()
             .map(|receiver| match receiver {
-                unified::Receiver::P2pkh(_) => unified::Typecode::P2pkh,
-                unified::Receiver::P2sh(_) => unified::Typecode::P2sh,
-                unified::Receiver::Sapling(_) => unified::Typecode::Sapling,
-                unified::Receiver::Orchard(_) => unified::Typecode::Orchard,
-                unified::Receiver::Unknown { typecode, .. } => unified::Typecode::Unknown(typecode),
+                unified::Receiver::P2pkh(_) => unified::Typecode::P2PKH,
+                unified::Receiver::P2sh(_) => unified::Typecode::P2SH,
+                unified::Receiver::Sapling(_) => unified::Typecode::SAPLING,
+                unified::Receiver::Orchard(_) => unified::Typecode::ORCHARD,
+                unified::Receiver::Unknown { typecode, .. } => {
+                    unified::Typecode::Data(unified::DataTypecode::Unknown(typecode))
+                }
             })
             .map(u32::from)
             .collect::<Vec<_>>();
@@ -348,7 +350,7 @@ pub unsafe extern "C" fn zcashlc_derive_spending_key(
             .map_err(|e| anyhow!("error generating unified spending key from seed: {:?}", e))
             .map(move |usk| {
                 let encoded = usk.to_bytes(Era::Orchard);
-                ffi::BoxedSlice::some(encoded)
+                ffi::BoxedSlice::some(secrecy::ExposeSecret::expose_secret(&encoded).clone())
             })
     });
     unwrap_exc_or_null(res)
@@ -375,9 +377,12 @@ pub unsafe extern "C" fn zcashlc_spending_key_to_full_viewing_key(
 ) -> *mut c_char {
     let res = catch_panic(|| {
         let network = parse_network(network_id)?;
-        unsafe { decode_usk(usk_ptr, usk_len) }.map(|usk| {
+        unsafe { decode_usk(usk_ptr, usk_len) }.and_then(|usk| {
             let ufvk = usk.to_unified_full_viewing_key();
-            CString::new(ufvk.encode(&network)).unwrap().into_raw()
+            let encoded = ufvk
+                .encode(&network)
+                .map_err(|e| anyhow!("error encoding unified full viewing key: {:?}", e))?;
+            Ok(CString::new(encoded).unwrap().into_raw())
         })
     });
     unwrap_exc_or_null(res)
@@ -694,7 +699,7 @@ pub unsafe extern "C" fn zcashlc_derive_private_use_metadata_key(
             ],
             // For the external subtree, we derive keys from the UFVK's items.
             Some(ufvk_string) => {
-                let (net, ufvk) = unified::Ufvk::decode(ufvk_string).map_err(|e| anyhow!("{e}"))?;
+                let (net, _revision, ufvk) = unified::Ufvk::decode(ufvk_string).map_err(|e| anyhow!("{e}"))?;
                 let expected_net = network.network_type();
                 if net != expected_net {
                     return Err(anyhow!(

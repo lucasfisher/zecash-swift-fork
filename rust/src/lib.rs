@@ -23,7 +23,17 @@ use pczt::{
     roles::{combiner::Combiner, prover::Prover},
 };
 use prost::Message;
-use rand::rngs::OsRng;
+/// The operating system's randomness, infallible: rand 0.10 replaced `OsRng` with the fallible
+/// `SysRng`, which `UnwrapErr` turns back into a `CryptoRng` (as zcash_client_sqlite does). Kalda's
+/// NU7 fork of the SDK keeps the old name so every call site stays as it was.
+pub(crate) type OsRng = rand::rand_core::UnwrapErr<rand::rngs::SysRng>;
+#[allow(non_upper_case_globals)]
+pub(crate) const OsRng: OsRng = rand::rand_core::UnwrapErr(rand::rngs::SysRng);
+
+/// A fresh `OsRng` to borrow mutably (`&mut os_rng()`), where the const would be a temporary.
+pub(crate) fn os_rng() -> OsRng {
+    OsRng
+}
 use secrecy::Secret;
 use tor_rtcompat::ToplevelBlockOn as _;
 use tracing::{debug, metadata::LevelFilter};
@@ -598,7 +608,7 @@ pub unsafe extern "C" fn zcashlc_create_account(
         let encoded = usk.to_bytes(Era::Orchard);
         Ok(Box::into_raw(Box::new(ffi::BinaryKey::new(
             account_uuid,
-            encoded,
+            secrecy::ExposeSecret::expose_secret(&encoded).clone(),
         ))))
     });
     unwrap_exc_or_null(res)
@@ -2892,6 +2902,8 @@ pub unsafe extern "C" fn zcashlc_create_proposed_transactions(
         let txids = create_proposed_transactions::<_, _, Infallible, _, Infallible, _>(
             &mut db_data,
             &network,
+            &SystemClock,
+            &mut os_rng(),
             &prover,
             &prover,
             &SpendingKeys::from_unified_spending_key(usk),
@@ -3021,6 +3033,8 @@ pub unsafe extern "C" fn zcashlc_create_pczt_from_proposal(
             let pczt = create_pczt_from_proposal::<_, _, Infallible, _, Infallible, _>(
                 &mut db_data,
                 &network,
+                &SystemClock,
+                &mut os_rng(),
                 account_uuid,
                 OvkPolicy::Sender,
                 &proposal,
@@ -3199,7 +3213,7 @@ pub unsafe extern "C" fn zcashlc_add_proofs_to_pczt(
                     anyhow!("PCZT's consensus branch does not support the Orchard pool")
                 })?;
             prover = prover
-                .create_orchard_proof(
+                .create_orchard_proof(OsRng, 
                     zcash_primitives::transaction::builder::cached_orchard_proving_key(
                         circuit_version,
                     ),
@@ -3222,7 +3236,7 @@ pub unsafe extern "C" fn zcashlc_add_proofs_to_pczt(
                     anyhow!("PCZT's consensus branch does not support the Ironwood pool")
                 })?;
             prover = prover
-                .create_ironwood_proof(
+                .create_ironwood_proof(OsRng, 
                     zcash_primitives::transaction::builder::cached_orchard_proving_key(
                         circuit_version,
                     ),
@@ -3248,7 +3262,7 @@ pub unsafe extern "C" fn zcashlc_add_proofs_to_pczt(
             let local_prover = LocalTxProver::new(spend_params, output_params);
 
             prover = prover
-                .create_sapling_proofs(&local_prover, &local_prover)
+                .create_sapling_proofs(OsRng, &local_prover, &local_prover)
                 .map_err(|e| anyhow!("Failed to create Sapling proofs for PCZT: {:?}", e))?;
         }
         assert!(!prover.requires_sapling_proofs());
@@ -3365,6 +3379,8 @@ pub unsafe extern "C" fn zcashlc_extract_and_store_from_pczt(
 
         let txid = extract_and_store_transaction_from_pczt::<_, ()>(
             &mut db_data,
+            &SystemClock,
+            &mut os_rng(),
             pczt,
             sapling_vk.as_ref().map(|(s, o)| (s, o)),
             None,
@@ -3867,7 +3883,7 @@ pub unsafe extern "C" fn zcashlc_get_exchange_rate_usd(
         let rate = tor_runtime.runtime().block_on(async {
             tor_runtime
                 .client()
-                .get_latest_zec_to_usd_rate(&exchanges)
+                .get_latest_zec_to_usd_rate(&mut os_rng(), &exchanges)
                 .await
         })?;
 
@@ -3999,7 +4015,7 @@ pub unsafe extern "C" fn zcashlc_get_exchange_rate_usd_from(
         let rate = tor_runtime.runtime().block_on(async {
             tor_runtime
                 .client()
-                .get_latest_zec_to_usd_rate(&exchanges)
+                .get_latest_zec_to_usd_rate(&mut os_rng(), &exchanges)
                 .await
         })?;
 
@@ -4624,6 +4640,8 @@ pub extern "C" fn zcashlc_set_custom_network(
         nu6_1: height(nu6_1),
         nu6_2: height(nu6_2),
         nu6_3: height(nu6_3),
+        // Custom (regtest) networks don't set NU7 through this call yet.
+        nu7: None,
     };
 
     match CUSTOM_PARAMS.write() {
@@ -4756,6 +4774,7 @@ mod tests {
                 nu6_1: height,
                 nu6_2: height,
                 nu6_3: height,
+                nu7: height,
             },
         };
         assert_eq!(

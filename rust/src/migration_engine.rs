@@ -38,7 +38,7 @@
 
 use anyhow::anyhow;
 use orchard::keys::FullViewingKey;
-use rand::rngs::OsRng;
+use crate::OsRng;
 use zcash_client_backend::data_api::{Account, InputSource, WalletRead};
 use zcash_client_sqlite::AccountUuid;
 use zcash_client_sqlite::pool_migration::orchard_ironwood::{

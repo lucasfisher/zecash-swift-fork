@@ -75,7 +75,7 @@ use std::slice;
 use anyhow::anyhow;
 use ffi_helpers::panic::catch_panic;
 use orchard::keys::SpendingKey;
-use rand::rngs::OsRng;
+use crate::OsRng;
 use rusqlite::{Connection, OptionalExtension};
 use zcash_client_backend::data_api::wallet::{
     TargetHeight,
@@ -1184,7 +1184,7 @@ fn serve_for_broadcast(
         .ok_or_else(|| anyhow!("no migration transaction with id {}", u32::from(id)))?;
     let mut store = account_store(&ctx.wallet, ctx.account, &mut ctx.store_conn)?;
     let tx = store
-        .take_transaction_for_broadcast(state, id)
+        .take_transaction_for_broadcast(OsRng, state, id)
         .map_err(|e| broadcast_seam_error(id, e))?;
     let mut raw = Vec::new();
     tx.write(&mut raw)
@@ -1241,7 +1241,7 @@ fn prove_one(
                 .map_or_else(|| ctx.tip(), Ok)?;
             let network = ctx.network;
             let fvk = stored_orchard_fvk(&ctx.wallet, ctx.account)?;
-            let mut prover = WalletMigrationProver::new(&mut ctx.wallet, ctx.account, fvk);
+            let mut prover = WalletMigrationProver::new(&mut ctx.wallet, OsRng, ctx.account, fvk);
             let Some(proved) = migration_finalize::prove_due_transaction(
                 &network,
                 &mut prover,
@@ -1249,7 +1249,7 @@ fn prove_one(
                 id,
                 preparation_anchor,
                 scanned_tip,
-                &mut OsRng,
+                &mut crate::os_rng(),
             )?
             else {
                 // Not scanned/retained yet — transient, retry on a later sweep.
@@ -2605,7 +2605,7 @@ fn drive_advance(
         )),
         // librustzcash #2910: re-spreading a missed broadcast schedule draws fresh
         // inter-broadcast gaps, so advancing needs entropy.
-        &mut OsRng,
+        &mut crate::os_rng(),
     )
     .map_err(|e| anyhow!("advancing the migration failed: {e}"))
 }
@@ -2823,7 +2823,7 @@ pub unsafe extern "C" fn zcashlc_migration_sync_wakeups(
         // and expiry is judged at `tip + 1` internally.
         let tip = ctx.tip()?;
         let wakeups = state
-            .sync_wakeup_schedule(tip, &WakeupParams::DEFAULT, &mut OsRng)
+            .sync_wakeup_schedule(tip, &WakeupParams::DEFAULT, &mut crate::os_rng())
             .map_err(|e| match e {
                 WakeupScheduleError::InfeasibleTransfer(id) => wakeup_infeasible(id),
             })?;
@@ -4802,7 +4802,7 @@ mod tests {
             .expect("account creation must succeed");
         (
             account.expose_uuid().into_bytes(),
-            usk.to_bytes(Era::Orchard),
+            secrecy::ExposeSecret::expose_secret(&usk.to_bytes(Era::Orchard)).clone(),
         )
     }
 
@@ -5787,7 +5787,7 @@ mod tests {
         use orchard::note::{ExtractedNoteCommitment, Note, NoteVersion, RandomSeed, Rho};
         use orchard::note_encryption::{OrchardDomain, OrchardNoteEncryption};
         use orchard::value::NoteValue;
-        use rand::RngCore;
+        use rand::Rng;
         use zcash_client_backend::proto::compact_formats::CompactOrchardAction;
         use zcash_note_encryption::Domain;
 
@@ -5838,7 +5838,7 @@ mod tests {
             nullifier: nf_old.to_vec(),
             cmx: cmx.to_bytes().to_vec(),
             ephemeral_key: ephemeral_key.0.to_vec(),
-            ciphertext: enc_ciphertext[..52].to_vec(),
+            ciphertext: enc_ciphertext.as_ref()[..52].to_vec(),
         }
     }
 
@@ -7312,7 +7312,7 @@ mod tests {
         use orchard::keys::{FullViewingKey, Scope, SpendingKey};
         use orchard::note::{Note, NoteVersion, RandomSeed, Rho};
         use orchard::value::NoteValue;
-        use rand::RngCore;
+        use rand::Rng;
         use zcash_primitives::transaction::fees::zip317::MARGINAL_FEE;
         use zcash_protocol::consensus::MAIN_NETWORK;
 
@@ -7758,7 +7758,7 @@ mod tests {
             id,
             preparation_anchor,
             h(5_000),
-            &mut OsRng,
+            &mut crate::os_rng(),
         )
         .map(|outcome| outcome.map(|proved| proved.apply(state)))
     }
@@ -10900,7 +10900,7 @@ mod tests {
         let mut store = account_store(&ctx.wallet, ctx.account, &mut ctx.store_conn)
             .expect("the fixture store opens");
         store
-            .take_transaction_for_broadcast(state, MigrationTransferId::new(id))
+            .take_transaction_for_broadcast(OsRng, state, MigrationTransferId::new(id))
             .map(|_| ())
     }
 

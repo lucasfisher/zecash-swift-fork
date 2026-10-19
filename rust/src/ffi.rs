@@ -58,13 +58,16 @@ impl Account {
                 .map_or(ptr::null_mut(), |s| CString::new(s).unwrap().into_raw()),
             seed_fingerprint: derivation.map_or([0u8; 32], |d| d.seed_fingerprint().to_bytes()),
             hd_account_index: derivation.map_or(u32::MAX, |d| d.account_index().into()),
-            ufvk: account.ufvk().map_or(ptr::null_mut(), |ufvk| {
-                CString::new(ufvk.encode(params)).unwrap().into_raw()
-            }),
-            uivk: account.ufvk().map_or(ptr::null_mut(), |ufvk| {
-                let uivk = ufvk.to_unified_incoming_viewing_key();
-                CString::new(uivk.encode(params)).unwrap().into_raw()
-            }),
+            // zcash_keys 0.17: encoding can fail (ZIP 316 Revision 2); a key that can't be
+            // encoded is reported as absent, as one the account doesn't have.
+            ufvk: account
+                .ufvk()
+                .and_then(|ufvk| ufvk.encode(params).ok())
+                .map_or(ptr::null_mut(), |s| CString::new(s).unwrap().into_raw()),
+            uivk: account
+                .ufvk()
+                .and_then(|ufvk| ufvk.to_unified_incoming_viewing_key().encode(params).ok())
+                .map_or(ptr::null_mut(), |s| CString::new(s).unwrap().into_raw()),
         }
     }
 }
