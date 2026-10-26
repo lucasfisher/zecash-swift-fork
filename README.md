@@ -1,3 +1,13 @@
+> **Unofficial fork.** This is Kalda's fork of [zcash/zcash-swift-wallet-sdk](https://github.com/zcash/zcash-swift-wallet-sdk)
+> at its last MIT release, 3.0.0, whose upstream support ends at Zcash's NU7 network upgrade. The
+> change is in `rust/`: the FFI library (`libzcashlc`) is built on the librustzcash releases that
+> know NU7 (`zcash_protocol` 0.11.0: Mainnet NU7 at block 3,543,405), so wallets keep working after
+> activation. The Swift sources are upstream's. Not affiliated with or endorsed by ZODL (Znewco,
+> Inc.), the Electric Coin Company or the Zcash Foundation; "Zcash" is their trademark. Licence:
+> MIT, as upstream (see LICENSE); the Rust dependencies are under MIT/Apache-2.0 and other
+> permissive licences. Branch `kalda/nu7`; each tagged version's pre-built `libzcashlc.xcframework`
+> is a release asset of this repository, referenced from `Package.swift`.
+
 # Zcash iOS Framework
 
 [![Build Status](https://travis-ci.org/zcash/ZcashLightClientKit.svg?branch=master)](https://travis-ci.org/zcash/ZcashLightClientKit)
