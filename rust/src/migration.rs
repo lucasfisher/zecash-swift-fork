@@ -11169,21 +11169,27 @@ mod tests {
             3_600_001,
             "the release lands at the scanned target, where the wallet can execute it"
         );
-        // The lag is 3,600,001 - 3,500,000 = 100,001 blocks; every deferred row moves by it.
+        // The lag is 3,600,001 - 3,500,000 = 100,001 blocks, and every deferred row moves by it
+        // IN TIME (`BlockSpacing::for_network`, ZIP 318 on NU7 chains): this is Mainnet, whose NU7
+        // activation at 3,543,405 lies inside the lag, and a block before it is worth three after.
+        // The lag is 43,405 pre-NU7 blocks (x3) + 56,596 post-NU7 blocks = 186,811 time units. Row 1
+        // at 3,500,100 spends 43,305 x 3 = 129,915 of them reaching activation; the remaining
+        // 56,896 land it at 3,600,301. Row 2 at 3,500,300: 43,105 x 3 = 129,315, remainder 57,496,
+        // so 3,600,901. The drawn 200-block gap, three times as many blocks after activation, is 600.
         assert_eq!(
             stored_scheduled_height(&stored, 1),
-            3_600_101,
-            "the first deferred row moves later by the full lag"
+            3_600_301,
+            "the first deferred row moves later by the full lag, measured in time across NU7"
         );
         assert_eq!(
             stored_scheduled_height(&stored, 2),
-            3_600_301,
+            3_600_901,
             "the second deferred row moves later by the same lag"
         );
         assert_eq!(
             stored_scheduled_height(&stored, 2) - stored_scheduled_height(&stored, 1),
-            200,
-            "the drawn inter-broadcast gap survives the wallet's absence unchanged"
+            600,
+            "the drawn inter-broadcast gap survives the wallet's absence unchanged in time (200 pre-NU7 blocks = 600 after)"
         );
         let _ = std::fs::remove_file(&path);
     }
