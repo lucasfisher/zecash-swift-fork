@@ -2595,14 +2595,18 @@ fn drive_advance(
     estimated_tip: i64,
 ) -> anyhow::Result<Advance> {
     let targets = dueness_targets(ctx.tip()?, estimated_tip);
+    // NU7 cuts the block interval from 75 s to 25 s: with the chain's spacing the schedule keeps
+    // its length in time across activation (ZIP 318 on NU7 chains).
+    let spacing = zcash_pool_migration::scheduling::BlockSpacing::for_network(&ctx.network);
     let mut store = account_store(&ctx.wallet, ctx.account, &mut ctx.store_conn)?;
     advance_migration(
         &mut store,
         state,
         targets,
-        &AdvanceConfig::new(ReorgSettleDepth::new(
-            zcash_pool_migration::scheduling::PROVABLE_ANCHOR_DEPTH,
-        )),
+        &AdvanceConfig::new(
+            ReorgSettleDepth::new(zcash_pool_migration::scheduling::PROVABLE_ANCHOR_DEPTH),
+            spacing,
+        ),
         // librustzcash #2910: re-spreading a missed broadcast schedule draws fresh
         // inter-broadcast gaps, so advancing needs entropy.
         &mut crate::os_rng(),
@@ -5178,7 +5182,7 @@ mod tests {
     #[test]
     fn schedule_rows_sort_chronologically_with_prep_offset() {
         let mut rng = StdRng::seed_from_u64(7);
-        let schedule = scheduling::schedule(&SchedulingParams::ZIP_318, h(1_000), 5, &mut rng);
+        let schedule = scheduling::schedule(&SchedulingParams::ZIP_318, &scheduling::BlockSpacing::UNIFORM, h(1_000), 5, &mut rng);
         // The engine hands the crossing values straight over; they are already net of the fee
         // buffer that pays each transfer's own fee.
         let crossing_values: Vec<Zatoshis> = (1..=5).map(|i| zat(i * 100_000_000)).collect();
@@ -5214,7 +5218,7 @@ mod tests {
         let expected_total: u64 = crossing_values.iter().map(|z| u64::from(*z)).sum();
 
         let mut rng_a = StdRng::seed_from_u64(1);
-        let schedule_a = scheduling::schedule(&SchedulingParams::ZIP_318, h(1_000), 5, &mut rng_a);
+        let schedule_a = scheduling::schedule(&SchedulingParams::ZIP_318, &scheduling::BlockSpacing::UNIFORM, h(1_000), 5, &mut rng_a);
         let rows_a = schedule_rows(
             &planned_transfers(0, &schedule_a),
             &crossing_values,
@@ -5223,7 +5227,7 @@ mod tests {
         .unwrap();
 
         let mut rng_b = StdRng::seed_from_u64(99);
-        let schedule_b = scheduling::schedule(&SchedulingParams::ZIP_318, h(1_000), 5, &mut rng_b);
+        let schedule_b = scheduling::schedule(&SchedulingParams::ZIP_318, &scheduling::BlockSpacing::UNIFORM, h(1_000), 5, &mut rng_b);
         let rows_b = schedule_rows(
             &planned_transfers(0, &schedule_b),
             &crossing_values,
@@ -5258,7 +5262,7 @@ mod tests {
     #[test]
     fn schedule_rows_reject_length_mismatch() {
         let mut rng = StdRng::seed_from_u64(7);
-        let schedule = scheduling::schedule(&SchedulingParams::ZIP_318, h(1_000), 3, &mut rng);
+        let schedule = scheduling::schedule(&SchedulingParams::ZIP_318, &scheduling::BlockSpacing::UNIFORM, h(1_000), 3, &mut rng);
         let crossing_values = vec![zat(100)];
         assert!(
             schedule_rows(
@@ -5290,6 +5294,7 @@ mod tests {
         .unwrap();
         let schedule = scheduling::schedule(
             &SchedulingParams::ZIP_318,
+            &scheduling::BlockSpacing::UNIFORM,
             h(1_000),
             crossing_values.len(),
             &mut rng,
