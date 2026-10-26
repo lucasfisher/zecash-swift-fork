@@ -1,5 +1,7 @@
 > **Unofficial fork.** This is Kalda's fork of [zcash/zcash-swift-wallet-sdk](https://github.com/zcash/zcash-swift-wallet-sdk)
-> at its last MIT release, 3.0.0, whose upstream support ends at Zcash's NU7 network upgrade. The
+> at 3.0.0. Upstream's MIT releases end with 4.0.0 (2026-10-25), and its support ends at Zcash's
+> NU7 network upgrade: 3.0.0 and 4.0.0 are both built on pre-NU7 librustzcash (4.0.0 only adds
+> shielded voting), so neither can send after activation. The
 > change is in `rust/`: the FFI library (`libzcashlc`) is built on the librustzcash releases that
 > know NU7 (`zcash_protocol` 0.11.0: Mainnet NU7 at block 3,543,405), so wallets keep working after
 > activation. The Swift sources are upstream's. Not affiliated with or endorsed by ZODL (Znewco,
