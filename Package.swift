@@ -30,8 +30,8 @@ if useLocalFFI {
     targets.append(
         .binaryTarget(
             name: "libzcashlc",
-            url: "https://github.com/lucasfisher/zecash-swift-fork/releases/download/3.0.0-kalda-nu7/libzcashlc.xcframework.zip",
-            checksum: "a6eaff16760057a53ce547f7e9e151dbbc1171ea885f370aa6064b2a7b9459cf"
+            url: "https://github.com/lucasfisher/zecash-swift-fork/releases/download/3.0.0-kalda-nu7.1/libzcashlc.xcframework.zip",
+            checksum: "2d9788a3b6ce38f8b95b450b92dbdff4404035c8a7768696dbbf0008d590ec77"
         )
     )
     sdkDependencies.append("libzcashlc")
