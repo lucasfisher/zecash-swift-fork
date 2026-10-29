@@ -503,6 +503,25 @@ public class SDKSynchronizer: Synchronizer {
         }
     }
 
+    public func proposefulfillingPaymentURISpendingTransparent(
+        _ uri: String,
+        accountUUID: AccountUUID,
+        fromTransparentAddress: String
+    ) async throws -> Proposal {
+        do {
+            try throwIfUnprepared()
+            return try await transactionEncoder.proposeFulfillingPaymentFromURISpendingTransparent(
+                uri,
+                accountUUID: accountUUID,
+                fromTransparentAddress: fromTransparentAddress
+            )
+        } catch ZcashError.rustCreateToAddress(let error) {
+            throw ZcashError.rustProposeTransferFromURI(error)
+        } catch {
+            throw error
+        }
+    }
+
     public func createProposedTransactions(
         proposal: Proposal,
         spendingKey: UnifiedSpendingKey

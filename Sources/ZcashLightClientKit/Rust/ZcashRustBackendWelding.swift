@@ -285,6 +285,17 @@ protocol ZcashRustBackendWelding {
         accountUUID: AccountUUID
     ) async throws -> FfiProposal
 
+    /// Kalda: as `proposeTransferFromURI`, paid only from the transparent UTXOs at
+    /// `fromTransparentAddress` (one of the account's own P2PKH addresses; its shielded notes are
+    /// never spent). Paying part to the account's own UA and the rest back to that address shields
+    /// just that part, in one transaction.
+    /// - Throws: `rustCreateToAddress`.
+    func proposeTransferFromURISpendingTransparent(
+        _ uri: String,
+        accountUUID: AccountUUID,
+        fromTransparentAddress: String
+    ) async throws -> FfiProposal
+
     /// Constructs a transaction proposal to shield all found UTXOs in data db for the given account,
     /// that can then be authorized and made ready for submission to the network with
     /// `createProposedTransaction`.

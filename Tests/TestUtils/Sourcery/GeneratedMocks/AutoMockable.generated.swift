@@ -1858,6 +1858,30 @@ class SynchronizerMock: Synchronizer {
         }
     }
 
+    // MARK: - proposefulfillingPaymentURISpendingTransparent
+
+    var proposefulfillingPaymentURISpendingTransparentAccountUUIDFromTransparentAddressThrowableError: Error?
+    var proposefulfillingPaymentURISpendingTransparentAccountUUIDFromTransparentAddressCallsCount = 0
+    var proposefulfillingPaymentURISpendingTransparentAccountUUIDFromTransparentAddressCalled: Bool {
+        return proposefulfillingPaymentURISpendingTransparentAccountUUIDFromTransparentAddressCallsCount > 0
+    }
+    var proposefulfillingPaymentURISpendingTransparentAccountUUIDFromTransparentAddressReceivedArguments: (uri: String, accountUUID: AccountUUID, fromTransparentAddress: String)?
+    var proposefulfillingPaymentURISpendingTransparentAccountUUIDFromTransparentAddressReturnValue: Proposal!
+    var proposefulfillingPaymentURISpendingTransparentAccountUUIDFromTransparentAddressClosure: ((String, AccountUUID, String) async throws -> Proposal)?
+
+    func proposefulfillingPaymentURISpendingTransparent(_ uri: String, accountUUID: AccountUUID, fromTransparentAddress: String) async throws -> Proposal {
+        if let error = proposefulfillingPaymentURISpendingTransparentAccountUUIDFromTransparentAddressThrowableError {
+            throw error
+        }
+        proposefulfillingPaymentURISpendingTransparentAccountUUIDFromTransparentAddressCallsCount += 1
+        proposefulfillingPaymentURISpendingTransparentAccountUUIDFromTransparentAddressReceivedArguments = (uri: uri, accountUUID: accountUUID, fromTransparentAddress: fromTransparentAddress)
+        if let closure = proposefulfillingPaymentURISpendingTransparentAccountUUIDFromTransparentAddressClosure {
+            return try await closure(uri, accountUUID, fromTransparentAddress)
+        } else {
+            return proposefulfillingPaymentURISpendingTransparentAccountUUIDFromTransparentAddressReturnValue
+        }
+    }
+
     // MARK: - createPCZTFromProposal
 
     var createPCZTFromProposalAccountUUIDProposalThrowableError: Error?
@@ -4666,6 +4690,30 @@ class ZcashRustBackendWeldingMock: ZcashRustBackendWelding {
             return try await closure(uri, accountUUID)
         } else {
             return proposeTransferFromURIAccountUUIDReturnValue
+        }
+    }
+
+    // MARK: - proposeTransferFromURISpendingTransparent
+
+    var proposeTransferFromURISpendingTransparentAccountUUIDFromTransparentAddressThrowableError: Error?
+    var proposeTransferFromURISpendingTransparentAccountUUIDFromTransparentAddressCallsCount = 0
+    var proposeTransferFromURISpendingTransparentAccountUUIDFromTransparentAddressCalled: Bool {
+        return proposeTransferFromURISpendingTransparentAccountUUIDFromTransparentAddressCallsCount > 0
+    }
+    var proposeTransferFromURISpendingTransparentAccountUUIDFromTransparentAddressReceivedArguments: (uri: String, accountUUID: AccountUUID, fromTransparentAddress: String)?
+    var proposeTransferFromURISpendingTransparentAccountUUIDFromTransparentAddressReturnValue: FfiProposal!
+    var proposeTransferFromURISpendingTransparentAccountUUIDFromTransparentAddressClosure: ((String, AccountUUID, String) async throws -> FfiProposal)?
+
+    func proposeTransferFromURISpendingTransparent(_ uri: String, accountUUID: AccountUUID, fromTransparentAddress: String) async throws -> FfiProposal {
+        if let error = proposeTransferFromURISpendingTransparentAccountUUIDFromTransparentAddressThrowableError {
+            throw error
+        }
+        proposeTransferFromURISpendingTransparentAccountUUIDFromTransparentAddressCallsCount += 1
+        proposeTransferFromURISpendingTransparentAccountUUIDFromTransparentAddressReceivedArguments = (uri: uri, accountUUID: accountUUID, fromTransparentAddress: fromTransparentAddress)
+        if let closure = proposeTransferFromURISpendingTransparentAccountUUIDFromTransparentAddressClosure {
+            return try await closure(uri, accountUUID, fromTransparentAddress)
+        } else {
+            return proposeTransferFromURISpendingTransparentAccountUUIDFromTransparentAddressReturnValue
         }
     }
 

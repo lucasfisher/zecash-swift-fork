@@ -341,6 +341,7 @@ private final class NonMigratingSynchronizer: Synchronizer {
     ) async throws -> AsyncThrowingStream<TransactionSubmitResult, Error> { Self.unused() }
 
     func proposefulfillingPaymentURI(_ uri: String, accountUUID: AccountUUID) async throws -> Proposal { Self.unused() }
+    func proposefulfillingPaymentURISpendingTransparent(_ uri: String, accountUUID: AccountUUID, fromTransparentAddress: String) async throws -> Proposal { Self.unused() }
 
     func createPCZTFromProposal(accountUUID: AccountUUID, proposal: Proposal) async throws -> Pczt { Self.unused() }
     func redactPCZTForSigner(pczt: Pczt) async throws -> Pczt { Self.unused() }

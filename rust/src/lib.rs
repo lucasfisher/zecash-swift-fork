@@ -59,7 +59,9 @@ use zcash_client_backend::{
             self, SignerView, SpendingKeys, create_pczt_from_proposal,
             create_proposed_transactions, decrypt_and_store_transaction,
             extract_and_store_transaction_from_pczt,
-            input_selection::{GreedyInputSelector, LockFilter, LockedInputPolicy, SpendPolicy},
+            input_selection::{
+                GreedyInputSelector, LockFilter, LockedInputPolicy, SpendPolicy, TransparentSpendPolicy,
+            },
             propose_send_max_transfer, propose_shielding, propose_transfer, redact_pczt_for_signer,
         },
     },
@@ -2583,6 +2585,81 @@ pub unsafe extern "C" fn zcashlc_propose_transfer_from_uri(
             .map_err(|e| anyhow!("Error creating transaction request: {:?}", e))?;
 
         let spend_policy = SpendPolicy::default();
+        let lock_inputs = None;
+        let proposed_version = None;
+        let proposal = propose_transfer::<_, _, _, _, Infallible>(
+            &mut db_data,
+            &network,
+            account_uuid,
+            &input_selector,
+            &change_strategy,
+            req,
+            wallet::ConfirmationsPolicy::try_from(confirmations_policy)?,
+            &spend_policy,
+            lock_inputs,
+            proposed_version,
+        )
+        .map_err(|e| anyhow!("Error while sending funds: {}", e))?;
+
+        let encoded = Proposal::from_standard_proposal(&proposal).encode_to_vec();
+
+        Ok(ffi::BoxedSlice::some(encoded))
+    });
+    unwrap_exc_or_null(res)
+}
+
+/// Kalda: as [`zcashlc_propose_transfer_from_uri`], paid ONLY from the transparent UTXOs at
+/// `from_taddr`, one of the account's own P2PKH receivers (never from its shielded notes). With
+/// the request `[X -> own UA, R -> from_taddr]` and `R = UTXO total - X - fee`, that is a partial
+/// shield in one transaction: payments take all the inputs, so there is no change output (change
+/// in a transaction with shielded outputs would be shielded, `TransparentChangePolicy`).
+///
+/// # Safety
+///
+/// As [`zcashlc_propose_transfer_from_uri`], and `from_taddr` must be non-null and must point to a
+/// null-terminated UTF-8 string.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn zcashlc_propose_transfer_from_uri_spending_transparent(
+    db_data: *const u8,
+    db_data_len: usize,
+    account_uuid_bytes: *const u8,
+    payment_uri: *const c_char,
+    from_taddr: *const c_char,
+    network_id: u32,
+    confirmations_policy: ffi::ConfirmationsPolicy,
+) -> *mut ffi::BoxedSlice {
+    let res = catch_panic(|| {
+        let network = parse_network(network_id)?;
+        let mut db_data = unsafe { wallet_db(db_data, db_data_len, network)? };
+
+        let account_uuid = account_uuid_from_bytes(account_uuid_bytes)?;
+        let payment_uri_str = unsafe { CStr::from_ptr(payment_uri) }.to_str()?;
+        let from_taddr_str = unsafe { CStr::from_ptr(from_taddr) }.to_str()?;
+
+        let taddr = match Address::decode(&network, from_taddr_str) {
+            None => Err(anyhow!("Not a valid address for this network")),
+            Some(Address::Transparent(addr @ TransparentAddress::PublicKeyHash(_))) => {
+                if db_data
+                    .get_transparent_receivers(account_uuid, true, false)?
+                    .contains_key(&addr)
+                {
+                    Ok(addr)
+                } else {
+                    Err(anyhow!("Transparent address does not belong to account"))
+                }
+            }
+            Some(Address::Transparent(_)) => Err(anyhow!("Not a P2PKH transparent address")),
+            Some(_) => Err(anyhow!("Not a transparent address")),
+        }?;
+
+        let (change_strategy, input_selector) = zip317_helper(None);
+
+        let req = TransactionRequest::from_uri(payment_uri_str)
+            .map_err(|e| anyhow!("Error creating transaction request: {:?}", e))?;
+
+        // No shielded pool: a shortfall is InsufficientFunds, never private notes spent.
+        let spend_policy = SpendPolicy::shielded_pools(std::iter::empty::<ShieldedPool>())
+            .with_transparent(TransparentSpendPolicy::from_one_address(taddr));
         let lock_inputs = None;
         let proposed_version = None;
         let proposal = propose_transfer::<_, _, _, _, Infallible>(

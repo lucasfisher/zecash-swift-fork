@@ -99,6 +99,14 @@ protocol TransactionEncoder {
         accountUUID: AccountUUID
     ) async throws -> Proposal
 
+    /// Kalda: as `proposeFulfillingPaymentFromURI`, paid only from the transparent UTXOs at
+    /// `fromTransparentAddress` (one of the account's own).
+    func proposeFulfillingPaymentFromURISpendingTransparent(
+        _ uri: String,
+        accountUUID: AccountUUID,
+        fromTransparentAddress: String
+    ) async throws -> Proposal
+
     /// submits a transaction to the Zcash peer-to-peer network.
     /// - Parameter transaction: a transaction overview
     func submit(transaction: EncodedTransaction) async throws

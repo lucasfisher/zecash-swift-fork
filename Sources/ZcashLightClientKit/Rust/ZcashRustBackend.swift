@@ -437,6 +437,36 @@ struct ZcashRustBackend: ZcashRustBackendWelding {
         ))
     }
 
+    // DB-READ: as proposeTransferFromURI (lock_inputs = None), spending only one own t-address.
+    func proposeTransferFromURISpendingTransparent(
+        _ uri: String,
+        accountUUID: AccountUUID,
+        fromTransparentAddress: String
+    ) async throws -> FfiProposal {
+        let proposal = zcashlc_propose_transfer_from_uri_spending_transparent(
+            dbData.0,
+            dbData.1,
+            accountUUID.id,
+            [CChar](uri.utf8CString),
+            [CChar](fromTransparentAddress.utf8CString),
+            networkType.networkId,
+            confirmationsPolicy.toBackend()
+        )
+
+        guard let proposal else {
+            throw ZcashError.rustCreateToAddress(
+                lastErrorMessage(fallback: "`proposeTransferFromURISpendingTransparent` failed with unknown error")
+            )
+        }
+
+        defer { zcashlc_free_boxed_slice(proposal) }
+
+        return try FfiProposal(serializedBytes: Data(
+            bytes: proposal.pointee.ptr,
+            count: Int(proposal.pointee.len)
+        ))
+    }
+
     @DBActor
     func createPCZTFromProposal(
         accountUUID: AccountUUID,

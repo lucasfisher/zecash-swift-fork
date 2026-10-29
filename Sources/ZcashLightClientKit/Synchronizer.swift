@@ -264,6 +264,19 @@ public protocol Synchronizer: AnyObject {
         accountUUID: AccountUUID
     ) async throws -> Proposal
 
+    /// Kalda: a proposal fulfilling a [ZIP-321](https://zips.z.cash/zip-0321) payment URI from the
+    /// transparent UTXOs at `fromTransparentAddress` only (one of the account's own P2PKH addresses;
+    /// its shielded notes are never spent). Paying part to the account's own UA and the rest back to
+    /// that address shields just that part, in one transaction.
+    ///
+    /// - NOTE: If `prepare()` hasn't already been called since creating of synchronizer instance or since the last wipe then this method throws
+    /// `SynchronizerErrors.notPrepared`.
+    func proposefulfillingPaymentURISpendingTransparent(
+        _ uri: String,
+        accountUUID: AccountUUID,
+        fromTransparentAddress: String
+    ) async throws -> Proposal
+
     /// Creates a partially-created (unsigned without proofs) transaction from the given proposal.
     ///
     /// Do not call this multiple times in parallel, or you will generate PCZT instances that, if
