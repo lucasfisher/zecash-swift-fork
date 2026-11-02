@@ -31,7 +31,7 @@ jobs:
           targets: aarch64-apple-ios, x86_64-apple-ios, aarch64-apple-ios-sim, x86_64-apple-darwin, aarch64-apple-darwin
 
       - name: Cache Cargo
-        uses: actions/cache@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # v5.0.3
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           # Deliberately enumerated rather than caching `~/.cargo` wholesale (which is what
           # Swatinem/rust-cache did): that includes `~/.cargo/git`, so a fork PR restoring a cache
